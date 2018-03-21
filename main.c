@@ -74,6 +74,16 @@
 #define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
 
+// Ruuvitag
+
+#define ECU_BAUDRATE    0x2aa000
+#define RUUVI_LED_RED   17
+#define RUUVI_LED_GREEN 19
+#define RUUVI_UART_RX   30
+#define RUUVI_UART_TX   31
+
+// -- Ruuvitag
+
 static ble_nus_t                        m_nus;                                      /**< Structure to identify the Nordic UART Service. */
 static uint16_t                         m_conn_handle = BLE_CONN_HANDLE_INVALID;    /**< Handle of the current connection. */
 
@@ -453,6 +463,7 @@ void bsp_event_handler(bsp_event_t event)
     }
 }
 
+extern void do_main_stm(int reason, unsigned char rx);
 
 /**@brief   Function for handling app_uart events.
  *
@@ -464,13 +475,19 @@ void bsp_event_handler(bsp_event_t event)
 /**@snippet [Handling the data received over UART] */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-    static uint8_t index = 0;
-    uint32_t       err_code;
+    //static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
+    //static uint8_t index = 0;
+    //uint32_t       err_code;
+    uint8_t rx;
 
     switch (p_event->evt_type)
     {
         case APP_UART_DATA_READY:
+            while (app_uart_get(&rx) == NRF_SUCCESS)
+            {
+                do_main_stm(1, rx);
+            }
+#if 0
             UNUSED_VARIABLE(app_uart_get(&data_array[index]));
             index++;
 
@@ -484,6 +501,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 
                 index = 0;
             }
+#endif
             break;
 
         case APP_UART_COMMUNICATION_ERROR:
@@ -500,8 +518,18 @@ void uart_event_handle(app_uart_evt_t * p_event)
 }
 /**@snippet [Handling the data received over UART] */
 
-#define ECU_BAUDRATE    0x2aa000
+void write_upstream(const char *msg, int n)
+{
+    ble_nus_string_send(&m_nus, (uint8_t *)msg, n);
+}
 
+void write_downstream(const unsigned char *msg, int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        while(app_uart_put(msg[i]) != NRF_SUCCESS);
+    }
+}
 
 /**@brief  Function for initializing the UART module.
  */
@@ -511,21 +539,20 @@ static void uart_init(void)
     uint32_t                     err_code;
     const app_uart_comm_params_t comm_params =
     {
-        30, //RX_PIN_NUMBER,
-        31, //TX_PIN_NUMBER,
-        4,  //RTS_PIN_NUMBER,
-        5,  //CTS_PIN_NUMBER,
+        RUUVI_UART_RX,
+        RUUVI_UART_TX,
+        UART_PIN_DISCONNECTED,
+        UART_PIN_DISCONNECTED,
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
-        0x2aa000
+        ECU_BAUDRATE
     };
 
-    nrf_gpio_cfg_input(30, NRF_GPIO_PIN_PULLUP);
-    nrf_gpio_cfg_output(31);
-    nrf_gpio_cfg_output(4);
-    nrf_gpio_cfg_input(5, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_input(RUUVI_UART_RX, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg_output(RUUVI_UART_TX);
 
-    nrf_gpio_cfg_output(LED_2);
+    nrf_gpio_cfg_output(RUUVI_LED_RED);
+    nrf_gpio_cfg_output(RUUVI_LED_GREEN);
 
     APP_UART_FIFO_INIT( &comm_params,
                        UART_RX_BUF_SIZE,
@@ -534,7 +561,11 @@ static void uart_init(void)
                        APP_IRQ_PRIORITY_LOWEST,
                        err_code);
     APP_ERROR_CHECK(err_code);
+
+    nrf_gpio_pin_set(RUUVI_LED_RED);
+    nrf_gpio_pin_set(RUUVI_LED_GREEN);
 }
+
 /**@snippet [UART Initialization] */
 
 
@@ -573,7 +604,7 @@ static void advertising_init(void)
  */
 static void buttons_leds_init(bool * p_erase_bonds)
 {
-#if 1
+#if 0
     bsp_event_t startup_event;
 
     uint32_t err_code = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS,
@@ -597,16 +628,61 @@ static void power_manage(void)
     APP_ERROR_CHECK(err_code);
 }
 
-#define LED_GREEN LED_2
-
-static void main_timer_handler(void * p_context)
+static void blink_status(void)
 {
     static int cnt = 0;
 
-    if (++cnt == 100)
+    if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
     {
-        app_uart_put('a');
-        cnt = 0;
+        if (cnt == 0)
+        {
+            nrf_gpio_pin_set(RUUVI_LED_RED);
+        }
+        if (cnt == 98)
+        {
+            nrf_gpio_pin_clear(RUUVI_LED_RED);
+        }
+    }
+    else
+    {
+        if (cnt == 0)
+        {
+            nrf_gpio_pin_set(RUUVI_LED_RED);
+        }
+        if (cnt == 90)
+        {
+            nrf_gpio_pin_clear(RUUVI_LED_RED);
+        }
+    }
+
+    cnt = (cnt+1) % 100;
+}
+
+#define DASH_DISCONNECTED   0
+#define DASH_CONNECTED      1
+
+static void main_timer_handler(void * p_context)
+{
+    static int prev_state = DASH_DISCONNECTED;
+
+    blink_status();
+
+    if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        if (prev_state == DASH_DISCONNECTED)
+        {
+            do_main_stm(2, 0);
+        }
+        else
+        {
+            do_main_stm(0, 0);
+        }
+
+        prev_state = DASH_CONNECTED;
+    }
+    else
+    {
+        prev_state = DASH_DISCONNECTED;
     }
 }
 
