@@ -40,6 +40,9 @@
 #include "bsp.h"
 #include "bsp_btn_ble.h"
 #include "nrf_gpio.h"
+#include "nrf_delay.h"
+
+#include "ecu_msg.h"
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           /**< Include the service_changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
@@ -77,6 +80,8 @@
 // Ruuvitag
 
 #define ECU_BAUDRATE    0x2aa000
+#define BREAK_BAUDRATE  0x007000
+
 #define RUUVI_LED_RED   17
 #define RUUVI_LED_GREEN 19
 #define RUUVI_UART_RX   30
@@ -147,15 +152,18 @@ static void gap_params_init(void)
  * @param[in] length   Length of the data.
  */
 /**@snippet [Handling the data received over BLE] */
+
+#define BOOTLOADER_DFU_START 0xB1
+
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
-    for (uint32_t i = 0; i < length; i++)
+    if (p_data[0] == 'd')
     {
-        while (app_uart_put(p_data[i]) != NRF_SUCCESS);
+        NRF_POWER->GPREGRET = BOOTLOADER_DFU_START;
+        NVIC_SystemReset();
     }
-    while (app_uart_put('\r') != NRF_SUCCESS);
-    while (app_uart_put('\n') != NRF_SUCCESS);
 }
+
 /**@snippet [Handling the data received over BLE] */
 
 
@@ -463,8 +471,6 @@ void bsp_event_handler(bsp_event_t event)
     }
 }
 
-extern void do_main_stm(int reason, unsigned char rx);
-
 /**@brief   Function for handling app_uart events.
  *
  * @details This function will receive a single character from the app_uart module and append it to
@@ -475,9 +481,6 @@ extern void do_main_stm(int reason, unsigned char rx);
 /**@snippet [Handling the data received over UART] */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    //static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-    //static uint8_t index = 0;
-    //uint32_t       err_code;
     uint8_t rx;
 
     switch (p_event->evt_type)
@@ -485,23 +488,8 @@ void uart_event_handle(app_uart_evt_t * p_event)
         case APP_UART_DATA_READY:
             while (app_uart_get(&rx) == NRF_SUCCESS)
             {
-                do_main_stm(1, rx);
+                do_main_stm(MAIN_REASON_RX, rx);
             }
-#if 0
-            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-            index++;
-
-            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-            {
-                err_code = ble_nus_string_send(&m_nus, data_array, index);
-                if (err_code != NRF_ERROR_INVALID_STATE)
-                {
-                    APP_ERROR_CHECK(err_code);
-                }
-
-                index = 0;
-            }
-#endif
             break;
 
         case APP_UART_COMMUNICATION_ERROR:
@@ -520,7 +508,16 @@ void uart_event_handle(app_uart_evt_t * p_event)
 
 void write_upstream(const char *msg, int n)
 {
-    ble_nus_string_send(&m_nus, (uint8_t *)msg, n);
+    int len = n;
+    uint8_t *ptr = (uint8_t *)msg;
+
+    while (len)
+    {
+        int sz = len < BLE_NUS_MAX_DATA_LEN ? len : BLE_NUS_MAX_DATA_LEN;
+        ble_nus_string_send(&m_nus, ptr, sz);
+        len -= sz;
+        ptr += sz;
+    }
 }
 
 void write_downstream(const unsigned char *msg, int n)
@@ -529,6 +526,36 @@ void write_downstream(const unsigned char *msg, int n)
     {
         while(app_uart_put(msg[i]) != NRF_SUCCESS);
     }
+}
+
+void break_downstream(void)
+{
+    NRF_UART0->BAUDRATE = BREAK_BAUDRATE;
+    app_uart_put(0x00);
+}
+
+void break_hard_downstream(int state)
+{
+    if (state)
+    {
+        NRF_UART0->PSELTXD = UART_PIN_DISCONNECTED;
+        nrf_gpio_pin_write(RUUVI_UART_TX, 0);
+    }
+    else
+    {
+        nrf_gpio_pin_write(RUUVI_UART_TX, 1);
+        NRF_UART0->PSELTXD = RUUVI_UART_TX;
+    }
+}
+
+void flush_downstream(void)
+{
+    app_uart_flush();
+}
+
+void delay_downstream_ms(uint32_t ms)
+{
+    nrf_delay_ms(ms);
 }
 
 /**@brief  Function for initializing the UART module.
@@ -549,7 +576,15 @@ static void uart_init(void)
     };
 
     nrf_gpio_cfg_input(RUUVI_UART_RX, NRF_GPIO_PIN_PULLUP);
-    nrf_gpio_cfg_output(RUUVI_UART_TX);
+    nrf_gpio_cfg(
+        RUUVI_UART_TX,
+        NRF_GPIO_PIN_DIR_OUTPUT,
+        NRF_GPIO_PIN_INPUT_DISCONNECT,
+        NRF_GPIO_PIN_NOPULL,
+        NRF_GPIO_PIN_H0S1,
+        NRF_GPIO_PIN_NOSENSE);
+
+    nrf_gpio_pin_write(RUUVI_UART_TX, 1);
 
     nrf_gpio_cfg_output(RUUVI_LED_RED);
     nrf_gpio_cfg_output(RUUVI_LED_GREEN);
@@ -661,6 +696,8 @@ static void blink_status(void)
 #define DASH_DISCONNECTED   0
 #define DASH_CONNECTED      1
 
+static void init_timer_handler(void * p_context);
+
 static void main_timer_handler(void * p_context)
 {
     static int prev_state = DASH_DISCONNECTED;
@@ -671,11 +708,16 @@ static void main_timer_handler(void * p_context)
     {
         if (prev_state == DASH_DISCONNECTED)
         {
-            do_main_stm(2, 0);
+            do_main_stm(MAIN_REASON_INIT, 0);
+            app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 10000, (void *) 0);
         }
         else
         {
-            do_main_stm(0, 0);
+            // Restart if main state machine returns 0
+            if (!do_main_stm(MAIN_REASON_NONE, 0))
+            {
+                prev_state = DASH_DISCONNECTED;
+            }
         }
 
         prev_state = DASH_CONNECTED;
@@ -683,6 +725,44 @@ static void main_timer_handler(void * p_context)
     else
     {
         prev_state = DASH_DISCONNECTED;
+    }
+}
+
+//
+// TODO: maybe move to ecu_msg.c to minimize changes in Nordic code...
+//
+
+static void init_timer_handler(void * p_context)
+{
+    int state = (int) p_context;
+
+    switch (state)
+    {
+    case 0:
+        break_hard_downstream(1);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 35000, (void *) 1);
+        break;
+    case 1:
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 35000, (void *) 2);
+        break;
+    case 2:
+        break_hard_downstream(0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 3);
+        break;
+    case 3:
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 4);
+        break;
+    case 4:
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 30000, (void *) 5);
+        break;
+    case 5:
+        do_main_stm(MAIN_REASON_NONE, 0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 6);
+        break;
+    case 6:
+        do_main_stm(MAIN_REASON_NONE, 0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, 50000, NULL);
+        break;
     }
 }
 
