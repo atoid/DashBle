@@ -18,30 +18,30 @@ See my other github project 'Dash' for Android application to utilize this.
 
 Two optocouplers PC817C or any equivalent can be used.
 
+```
 Input side
 
-`
 A = anode
 K = katode
-`
 
 Output side
 
-`
 C = collector
 E = emitter
-`
+```
 
 Connecting the wires (OI1 and OI2 are optoisolators)
 
 ### ECU side
 
-`
+```
+
 K-line > OI1 K
 12V > 1 kOhm resistor -> OI1 A
 K-line > OI2 C
 GND > OI2 E
-`
+```
+
 
 ### Ruuvitag side
 
@@ -49,7 +49,7 @@ See the pinout from the link below. GPIO 30 and 31 are used for uart (pads 25 an
 
 https://lab.ruuvi.com/pinout/
 
-`
+```
 RX = GPIO.30
 TX = GPIO.31
 3V = pad 17
@@ -60,7 +60,7 @@ TX -> OI2 K
 3V -> 500 Ohm resistor -> RX
 RX -> OI1 C
 GND -> OI1 E
-`
+```
 
 This will translate Ruuvitag 3V levels to ECU side 12V and also merge TX & RX lines to K-line.
 
