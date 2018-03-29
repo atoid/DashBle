@@ -717,6 +717,7 @@ static void main_timer_handler(void * p_context)
             if (!do_main_stm(MAIN_REASON_NONE, 0))
             {
                 prev_state = DASH_DISCONNECTED;
+                return;
             }
         }
 
