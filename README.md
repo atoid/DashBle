@@ -36,16 +36,15 @@ Connecting the wires (OI1 and OI2 are optoisolators)
 
 ```
 
-K-line > OI1 K
-12V > 1 kOhm resistor -> OI1 A
-K-line > OI2 C
-GND > OI2 E
+K-line -> OI1 K
+12V -> 1 kOhm resistor -> OI1 A
+K-line -> OI2 C
+GND -> OI2 E
 ```
-
 
 ### Ruuvitag side
 
-See the pinout from the link below. GPIO 30 and 31 are used for uart (pads 25 and 24).
+See the pinout from the link below. GPIO.30 and .31 are used for UART (pads 25 and 24).
 
 https://lab.ruuvi.com/pinout/
 
