@@ -69,12 +69,22 @@ Code in this repository replaces some of the files under Nordic NRF SDK ble_app_
 provides simple UART service over BLE that can be used from f.ex. Android phone. New code is added to do the
 ECU initialization, basic message handling and sending data upstream over BLE.
 
+Apply the code on top of Nordic NRF SDK, build the application, create DFU packet and upload it to Ruuvitag. For more
+information read Ruuvitag documentation.
+
 ## Other projects / information
 
-Lot of useful information from this ECU interfacing project. Some of the Honda ECU data tables are explained.
+Lot of useful information in this ECU interfacing project. Some of the Honda ECU data tables are explained.
 
 http://projects.gonzos.net/ctx-obd/
 
-Also some clues about the ECU protocol here:
+Some clues about the ECU protocol.
 
 http://forum.pgmfi.org/viewtopic.php?f=40&t=23654&start=15
+
+## Images
+
+![Testing with CB500F](images/honda_ruuvi.jpeg?raw=true "Honda and Ruuvitag")
+
+![Android app](images/android_app.png?raw=true "Android app")
+
