@@ -16,7 +16,7 @@ See my other github project 'Dash' for Android application to utilize this.
 
 ## Interface circuit
 
-Two optocouplers PC817C or any equivalent can be used.
+Two optocouplers PC817C or any equivalent can be used. See the image below for schematic.
 
 ```
 Input side
@@ -84,7 +84,10 @@ http://forum.pgmfi.org/viewtopic.php?f=40&t=23654&start=15
 
 ## Images
 
+![Interface schematic](images/schema.png?raw=true "Interface schematic")
+
 ![Testing with CB500F](images/honda_ruuvi.jpeg?raw=true "Honda and Ruuvitag")
 
 ![Android app](images/android_app.png?raw=true "Android app")
+
 
