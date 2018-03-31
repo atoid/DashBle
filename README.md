@@ -35,7 +35,6 @@ Connecting the wires (OI1 and OI2 are optoisolators)
 ### ECU side
 
 ```
-
 K-line -> OI1 K
 12V -> 1 kOhm resistor -> OI1 A
 K-line -> OI2 C
@@ -49,8 +48,8 @@ See the pinout from the link below. GPIO.30 and .31 are used for UART (pads 25 a
 https://lab.ruuvi.com/pinout/
 
 ```
-RX = GPIO.30
-TX = GPIO.31
+RX = GPIO.30 pad 25
+TX = GPIO.31 pad 24
 3V = pad 17
 GND = pad 16
 
@@ -71,6 +70,14 @@ ECU initialization, basic message handling and sending data upstream over BLE.
 
 Apply the code on top of Nordic NRF SDK, build the application, create DFU packet and upload it to Ruuvitag. For more
 information read Ruuvitag documentation.
+
+If and when you get the app running in Ruuvitag then you can use Nordic nRF UART app in Android phone to connect
+to Ruuvitag.
+
+https://play.google.com/store/apps/details?id=com.nordicsemi.nrfUARTv2
+
+If ECU communication is ok, then you should see messages coming from the Ruuvitag. Then you can see my Dash repo
+for a custom motorcycle dash Android app.
 
 ## Other projects / information
 
