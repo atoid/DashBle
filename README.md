@@ -89,6 +89,11 @@ Some clues about the ECU protocol.
 
 http://forum.pgmfi.org/viewtopic.php?f=40&t=23654&start=15
 
+## Future development
+
+Replace Ruuvitag with cheap and widely available ESP32 based board. Porting ECU communication to ESP32 should not be a
+big task.
+
 ## Images
 
 ![Interface schematic](images/schema.png?raw=true "Interface schematic")
