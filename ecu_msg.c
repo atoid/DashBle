@@ -88,7 +88,7 @@ static void break_downstream(int state)
 
 #endif
 
-void write_upstream(const char *msg, int n)
+static void write_upstream(const char *msg, int n)
 {
     int len = n;
     uint8_t *ptr = (uint8_t *)msg;
@@ -102,7 +102,7 @@ void write_upstream(const char *msg, int n)
     }
 }
 
-void write_downstream(const unsigned char *msg, int n)
+static void write_downstream(const unsigned char *msg, int n)
 {
     for (int i = 0; i < n; i++)
     {
