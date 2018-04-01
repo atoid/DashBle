@@ -2,7 +2,20 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "app_simple_timer.h"
+#include "ble_nus.h"
+#include "app_uart.h"
+#include "nrf_gpio.h"
+
 #include "ecu_msg.h"
+
+#define DASH_DISCONNECTED   0
+#define DASH_CONNECTED      1
+
+#define RUUVI_LED_RED       17
+#define RUUVI_LED_GREEN     19
+
+#define BREAK_TYPE_LO_BAUD  0
 
 static const unsigned char REQ_WAKEUP[] = {0xfe, 0x04, 0xff, 0xff};
 static const unsigned char REQ_INIT[] = {0x72, 0x05, 0x00, 0xf0, 0x99};
@@ -21,6 +34,9 @@ static int msg_length = 0;
 static unsigned char msg_buf[32];
 static char str_buf[64];
 
+extern ble_nus_t m_nus;
+extern uint16_t m_conn_handle;
+
 #define DBG(...) {\
   snprintf(str_buf, sizeof(str_buf), __VA_ARGS__);\
   write_upstream(str_buf, strlen(str_buf));\
@@ -34,6 +50,65 @@ static char str_buf[64];
   }\
   write_upstream(str_buf, 1+msg[1]*2);\
 }\
+
+static void init_timer_handler(void * p_context);
+
+#if BREAK_TYPE_LO_BAUD == 1
+
+// BREAK using very low baudrate
+static void break_downstream(int state)
+{
+    if (state)
+    {
+        NRF_UART0->BAUDRATE = BREAK_BAUDRATE;
+        app_uart_put(0x00);
+    }
+    else
+    {
+        NRF_UART0->BAUDRATE = ECU_BAUDRATE;
+    }
+}
+
+#else
+
+// BREAK using TX pin as GPIO
+static void break_downstream(int state)
+{
+    if (state)
+    {
+        NRF_UART0->PSELTXD = UART_PIN_DISCONNECTED;
+        nrf_gpio_pin_write(RUUVI_UART_TX, 0);
+    }
+    else
+    {
+        nrf_gpio_pin_write(RUUVI_UART_TX, 1);
+        NRF_UART0->PSELTXD = RUUVI_UART_TX;
+    }
+}
+
+#endif
+
+void write_upstream(const char *msg, int n)
+{
+    int len = n;
+    uint8_t *ptr = (uint8_t *)msg;
+
+    while (len)
+    {
+        int sz = len < BLE_NUS_MAX_DATA_LEN ? len : BLE_NUS_MAX_DATA_LEN;
+        ble_nus_string_send(nus_get_service(), ptr, sz);
+        len -= sz;
+        ptr += sz;
+    }
+}
+
+void write_downstream(const unsigned char *msg, int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        while(app_uart_put(msg[i]) != NRF_SUCCESS);
+    }
+}
 
 static int to_hex(char *ptr, unsigned char v)
 {
@@ -230,3 +305,121 @@ int do_main_stm(int reason, unsigned char rx)
     return 1;
 }
 
+static void blink_status(void)
+{
+    static int cnt = 0;
+
+    if (nus_get_conn_handle() == BLE_CONN_HANDLE_INVALID)
+    {
+        if (cnt == 0)
+        {
+            nrf_gpio_pin_set(RUUVI_LED_RED);
+        }
+        if (cnt == 98)
+        {
+            nrf_gpio_pin_clear(RUUVI_LED_RED);
+        }
+    }
+    else
+    {
+        if (cnt == 0)
+        {
+            nrf_gpio_pin_set(RUUVI_LED_RED);
+        }
+        if (cnt == 90)
+        {
+            nrf_gpio_pin_clear(RUUVI_LED_RED);
+        }
+    }
+
+    cnt = (cnt+1) % 100;
+}
+
+static void main_timer_handler(void * p_context)
+{
+    static int prev_state = DASH_DISCONNECTED;
+
+    blink_status();
+
+    if (nus_get_conn_handle() != BLE_CONN_HANDLE_INVALID)
+    {
+        if (prev_state == DASH_DISCONNECTED)
+        {
+            do_main_stm(MAIN_REASON_INIT, 0);
+            app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 10000, (void *) 0);
+        }
+        else
+        {
+            // Restart if main state machine returns 0
+            if (!do_main_stm(MAIN_REASON_NONE, 0))
+            {
+                prev_state = DASH_DISCONNECTED;
+                return;
+            }
+        }
+
+        prev_state = DASH_CONNECTED;
+    }
+    else
+    {
+        prev_state = DASH_DISCONNECTED;
+    }
+}
+
+static void init_timer_handler(void * p_context)
+{
+    int state = (int) p_context;
+
+    switch (state)
+    {
+    case 0:
+        break_downstream(1);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 35000, (void *) 1);
+        break;
+    case 1:
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 35000, (void *) 2);
+        break;
+    case 2:
+        break_downstream(0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 3);
+        break;
+    case 3:
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 4);
+        break;
+    case 4:
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 30000, (void *) 5);
+        break;
+    case 5:
+        do_main_stm(MAIN_REASON_NONE, 0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 6);
+        break;
+    case 6:
+        do_main_stm(MAIN_REASON_NONE, 0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, 50000, NULL);
+        break;
+    }
+}
+
+void ecu_init(void)
+{
+    nrf_gpio_cfg_input(RUUVI_UART_RX, NRF_GPIO_PIN_PULLUP);
+    nrf_gpio_cfg(
+        RUUVI_UART_TX,
+        NRF_GPIO_PIN_DIR_OUTPUT,
+        NRF_GPIO_PIN_INPUT_DISCONNECT,
+        NRF_GPIO_PIN_NOPULL,
+        NRF_GPIO_PIN_H0S1,
+        NRF_GPIO_PIN_NOSENSE);
+
+    nrf_gpio_pin_write(RUUVI_UART_TX, 1);
+
+    nrf_gpio_cfg_output(RUUVI_LED_RED);
+    nrf_gpio_cfg_output(RUUVI_LED_GREEN);
+
+    nrf_gpio_pin_set(RUUVI_LED_RED);
+    nrf_gpio_pin_set(RUUVI_LED_GREEN);
+
+    // Start main timer
+    app_simple_timer_init();
+    app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, 50000, NULL);
+}

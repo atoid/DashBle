@@ -3,6 +3,12 @@
 
 #include <stdint.h>
 
+#define ECU_BAUDRATE    0x2aa000
+#define BREAK_BAUDRATE  0x007000
+
+#define RUUVI_UART_RX   30
+#define RUUVI_UART_TX   31
+
 #define MSG_STM_IDLE     0
 #define MSG_STM_LENGTH   1
 #define MSG_STM_DATA     2
@@ -27,14 +33,10 @@
 
 // Functions between main.c and ecu_msg.c
 
-extern void write_upstream(const char *msg, int n);
-extern void write_downstream(const unsigned char *msg, int n);
-extern void break_downstream(void);
-extern void break_hard_downstream(int state);
-extern void flush_downstream(void);
-extern void delay_downstream_ms(uint32_t ms);
-
+extern void ecu_init(void);
 extern int do_main_stm(int reason, unsigned char rx);
 
-#endif
+extern ble_nus_t *nus_get_service(void);
+extern uint16_t nus_get_conn_handle(void);
 
+#endif
