@@ -68,15 +68,15 @@ Code in this repository replaces some of the files under Nordic NRF SDK ble_app_
 provides simple UART service over BLE that can be used from f.ex. Android phone. New code is added to do the
 ECU initialization, basic message handling and sending data upstream over BLE.
 
-Apply the code on top of Nordic NRF SDK, build the application, create DFU packet and upload it to Ruuvitag. For more
-information read Ruuvitag documentation.
+This code is tested with Nordic NRF SDK version 12.2.0. Apply the code on top of relevant Nordic NRF SDK files,
+build the application, create DFU packet and upload it to Ruuvitag. For more information read Ruuvitag documentation.
 
 If and when you get the app running in Ruuvitag then you can use Nordic nRF UART app in Android phone to connect
-to Ruuvitag.
+to Ruuvitag, which now should show as 'ECU' when scanning.
 
 https://play.google.com/store/apps/details?id=com.nordicsemi.nrfUARTv2
 
-If ECU communication is ok, then you should see messages coming from the Ruuvitag. Then you can see my Dash repo
+If ECU communication is ok, then you should see messages coming from the Ruuvitag. Then you can check my Dash repo
 for a custom motorcycle dash Android app.
 
 ## Other projects / information
