@@ -17,6 +17,15 @@
 
 #define BREAK_TYPE_LO_BAUD  0
 
+#define WAIT_BEFORE_PULSE   10
+#define WAIT_PULSE          70
+#define WAIT_AFTER_PULSE    130
+#define WAIT_AFTER_WAKEUP   50
+#define INTERVAL_MAIN       50
+
+// app_timer configured to run at 250 kHz
+#define TIMER_MS(ms)        ((250000 * ms) / 1000)
+
 static const unsigned char REQ_WAKEUP[] = {0xfe, 0x04, 0xff, 0xff};
 static const unsigned char REQ_INIT[] = {0x72, 0x05, 0x00, 0xf0, 0x99};
 
@@ -346,7 +355,7 @@ static void main_timer_handler(void * p_context)
         if (prev_state == DASH_DISCONNECTED)
         {
             do_main_stm(MAIN_REASON_INIT, 0);
-            app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 10000, (void *) 0);
+            app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, TIMER_MS(WAIT_BEFORE_PULSE), (void *) 0);
         }
         else
         {
@@ -374,28 +383,19 @@ static void init_timer_handler(void * p_context)
     {
     case 0:
         break_downstream(1);
-        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 35000, (void *) 1);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, TIMER_MS(WAIT_PULSE), (void *) 1);
         break;
     case 1:
-        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 35000, (void *) 2);
+        break_downstream(0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, TIMER_MS(WAIT_AFTER_PULSE), (void *) 2);
         break;
     case 2:
-        break_downstream(0);
-        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 3);
+        do_main_stm(MAIN_REASON_NONE, 0);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, TIMER_MS(WAIT_AFTER_WAKEUP), (void *) 3);
         break;
     case 3:
-        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 4);
-        break;
-    case 4:
-        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 30000, (void *) 5);
-        break;
-    case 5:
         do_main_stm(MAIN_REASON_NONE, 0);
-        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, 50000, (void *) 6);
-        break;
-    case 6:
-        do_main_stm(MAIN_REASON_NONE, 0);
-        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, 50000, NULL);
+        app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, TIMER_MS(INTERVAL_MAIN), NULL);
         break;
     }
 }
@@ -421,5 +421,5 @@ void ecu_init(void)
 
     // Start main timer
     app_simple_timer_init();
-    app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, 50000, NULL);
+    app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, TIMER_MS(INTERVAL_MAIN), NULL);
 }
