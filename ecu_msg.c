@@ -43,21 +43,9 @@ static int msg_length = 0;
 static unsigned char msg_buf[32];
 static char str_buf[64];
 
-extern ble_nus_t m_nus;
-extern uint16_t m_conn_handle;
-
 #define DBG(...) {\
   snprintf(str_buf, sizeof(str_buf), __VA_ARGS__);\
   write_upstream(str_buf, strlen(str_buf));\
-}\
-
-#define WRITE_UPSTREAM(msg) {\
-  char *ptr = str_buf;\
-  *ptr++ = ':';\
-  for (int i = 0; i < msg[1]; i++) {\
-    ptr += to_hex(ptr, msg[i]);\
-  }\
-  write_upstream(str_buf, 1+msg[1]*2);\
 }\
 
 static void init_timer_handler(void * p_context);
@@ -193,6 +181,17 @@ static void ecu_send_req(const unsigned char *msg)
     write_downstream(msg, msg[1]);
 }
 
+static void dash_send_msg(const unsigned char *msg)
+{
+    char *ptr = str_buf;
+    *ptr++ = ':';
+    for (int i = 0; i < msg[1]; i++)
+    {
+        ptr += to_hex(ptr, msg[i]);
+    }
+    write_upstream(str_buf, 1+msg[1]*2);
+}
+
 static int ecu_process_msg(unsigned char *msg)
 {
     // Ecu response
@@ -208,7 +207,7 @@ static int ecu_process_msg(unsigned char *msg)
 
         // Table contents
         case 0x71:
-            WRITE_UPSTREAM(msg);
+            dash_send_msg(msg);
             if (msg[3] == 0x11)
             {
                 ecu_send_req(REQ_READ_TABLE_D1);
@@ -232,7 +231,7 @@ int do_main_stm(int reason, unsigned char rx)
     // State machine init
     if (reason == MAIN_REASON_INIT)
     {
-        main_state = MAIN_STM_WAKEUP;
+        main_state = MAIN_STM_NONE;
         main_watchdog = 0;
         cnt = 0;
         return 1;
@@ -254,26 +253,6 @@ int do_main_stm(int reason, unsigned char rx)
         // Empty
         break;
 
-    case MAIN_STM_BREAK:
-        // Empty
-        break;
-
-    case MAIN_STM_WAKEUP:
-        if (reason == MAIN_REASON_NONE)
-        {
-            ecu_send_req(REQ_WAKEUP);
-            main_state = MAIN_STM_INIT;
-        }
-        break;
-
-    case MAIN_STM_INIT:
-        if (reason == MAIN_REASON_NONE)
-        {
-            ecu_send_req(REQ_INIT);
-            main_state = MAIN_STM_RUN;
-        }
-        break;
-
     case MAIN_STM_RUN:
         if (reason == MAIN_REASON_RX)
         {
@@ -288,6 +267,7 @@ int do_main_stm(int reason, unsigned char rx)
             if (res == MSG_STATUS_ERR)
             {
                 main_state = MAIN_STM_REQ_11;
+                main_watchdog = 0;
             }
         }
         else // every ~2.5 seconds
@@ -305,7 +285,6 @@ int do_main_stm(int reason, unsigned char rx)
         if (reason == MAIN_REASON_NONE)
         {
             ecu_send_req(REQ_READ_TABLE_11);
-            main_watchdog = 0;
             main_state = MAIN_STM_RUN;
         }
         break;
@@ -390,11 +369,12 @@ static void init_timer_handler(void * p_context)
         app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, TIMER_MS(WAIT_AFTER_PULSE), (void *) 2);
         break;
     case 2:
-        do_main_stm(MAIN_REASON_NONE, 0);
+        ecu_send_req(REQ_WAKEUP);
         app_simple_timer_start(APP_SIMPLE_TIMER_MODE_SINGLE_SHOT, init_timer_handler, TIMER_MS(WAIT_AFTER_WAKEUP), (void *) 3);
         break;
     case 3:
-        do_main_stm(MAIN_REASON_NONE, 0);
+        ecu_send_req(REQ_INIT);
+        main_state = MAIN_STM_RUN;
         app_simple_timer_start(APP_SIMPLE_TIMER_MODE_REPEATED, main_timer_handler, TIMER_MS(INTERVAL_MAIN), NULL);
         break;
     }
