@@ -94,6 +94,10 @@ http://forum.pgmfi.org/viewtopic.php?f=40&t=23654&start=15
 Replace Ruuvitag with cheap and widely available ESP32 based board. Porting ECU communication to ESP32 should not be a
 big task.
 
+Other alternative is to use NRF51822 modules that have antenna and related components assembled on the module board.
+These modules can be directly programmed with OpenOCD and Raspberry PI just by wiring four GPIO pins. No modification
+to DashBle should be required. Flash Nordic softdevice S132 and DashBle application and it shuold work.
+
 ## Images
 
 ![Interface schematic](images/schema.png?raw=true "Interface schematic")
