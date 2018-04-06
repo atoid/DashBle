@@ -42,6 +42,7 @@ static int msg_index = 0;
 static int msg_length = 0;
 static unsigned char msg_buf[32];
 static char str_buf[64];
+static int blink_comms = 0;
 
 #define DBG(...) {\
   snprintf(str_buf, sizeof(str_buf), __VA_ARGS__);\
@@ -144,6 +145,7 @@ static int do_msg_stm(unsigned char rx)
     switch (msg_state)
     {
     case MSG_STM_IDLE:
+        blink_comms = 1;
         msg_buf[msg_index++] = rx;
         msg_state = MSG_STM_LENGTH;
         break;
@@ -321,6 +323,17 @@ static void blink_status(void)
     }
 
     cnt = (cnt+1) % 100;
+
+    // Blink green if communicating with ECU
+    if (blink_comms)
+    {
+        nrf_gpio_pin_clear(RUUVI_LED_GREEN);
+        blink_comms = 0;
+    }
+    else
+    {
+        nrf_gpio_pin_set(RUUVI_LED_GREEN);
+    }
 }
 
 static void main_timer_handler(void * p_context)
