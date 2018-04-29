@@ -114,7 +114,7 @@ Compared to Ruuvitag the module does not have GPIO31 available in headers so for
 to be used. For example GPIO3 is available near GPIO30.
 
 These modules can be programmed with OpenOCD, only four wires are needed. From Raspberry PI connect VCC, GND and
-GPIO24 -> SWDIO, GPIO25 -> SWCLK to the module board.
+GPIO11 -> SWCLK, GPIO25 -> SWDIO to the module board.
 
 ### Flashing with OpenOCD
 
