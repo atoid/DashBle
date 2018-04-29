@@ -102,7 +102,7 @@ Other alternative is to use NRF51822 modules that have antenna and related compo
 These modules can be directly programmed with OpenOCD and Raspberry PI just by wiring four GPIO pins. No modification
 to DashBle should be required. Flash Nordic softdevice S132 and DashBle application and it shuold work.
 
-## Ebay NRF51822 modules
+### Ebay NRF51822 modules
 
 Received cheap(est) NRF51 module from Ebay and some initial testing is now complete. The module contans older chip
 verson and Nordic softdevice S130 must be used. Also the chip has only 16kB RAM so in the Nordic SDK linker file
@@ -115,6 +115,62 @@ to be used. For example GPIO3 is available near GPIO30.
 
 These modules can be programmed with OpenOCD, only four wires are needed. From Raspberry PI connect VCC, GND and
 GPIO24 -> SWDIO, GPIO25 -> SWCLK to the module board.
+
+### Flashing with OpenOCD
+
+After wiring the module (and compiling OpenOCD with Raspberry native support...) run the following to connect
+OpenOCD to the target chip. The output should be like below.
+
+```
+$ sudo openocd -f interface/raspberrypi2-native.cfg -c "transport select swd; set WORKAREASIZE 0" -f target/nrf51.cfg
+
+Open On-Chip Debugger 0.10.0+dev-00376-g3d3b45af (2018-04-04-21:11)
+Licensed under GNU GPL v2
+For bug reports, read
+        http://openocd.org/doc/doxygen/bugs.html
+BCM2835 GPIO config: tck = 11, tms = 25, tdi = 10, tdo = 9
+BCM2835 GPIO nums: swclk = 11, swdio = 25
+0
+cortex_m reset_config sysresetreq
+adapter speed: 1000 kHz
+Info : Listening on port 6666 for tcl connections
+Info : Listening on port 4444 for telnet connections
+Info : BCM2835 GPIO JTAG/SWD bitbang driver
+Info : JTAG and SWD modes enabled
+Info : clock speed 1001 kHz
+Info : SWD DPIDR 0x0bb11477
+Info : nrf51.cpu: hardware has 4 breakpoints, 2 watchpoints
+Info : Listening on port 3333 for gdb connections
+```
+
+In second terminal run telnet and give commands to flash the chip.
+
+```
+$ telnet localhost 4444
+Trying ::1...
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+Open On-Chip Debugger
+> halt
+target halted due to debug-request, current mode: Thread
+xPSR: 0x61000000 pc: 0x00011434 msp: 0x20003f28
+> nrf51 mass_erase
+Unknown device (HWID 0x0000008f)
+> flash write_image s130_nrf51_2.0.1_softdevice.hex
+Padding image section 0 with 2112 bytes
+not enough working area available(requested 32)
+no working area available, falling back to slow memory writes
+wrote 110560 bytes from file s130_nrf51_2.0.1_softdevice.hex in 4.930790s (21.897 KiB/s)
+> flash write_image nrf51422_xxac.hex
+not enough working area available(requested 32)
+no working area available, falling back to slow memory writes
+wrote 19988 bytes from file nrf51422_xxac.hex in 0.967458s (20.176 KiB/s)
+> reset run
+>
+```
+
+Now the chip is flashed, up and running. You should see "ECU" device appear in Nordic nRF Connect or nRF UART tool.
 
 ## Images
 
