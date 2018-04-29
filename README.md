@@ -89,6 +89,10 @@ Some clues about the ECU protocol.
 
 http://forum.pgmfi.org/viewtopic.php?f=40&t=23654&start=15
 
+OpenOCD with Raspberry PI
+
+https://chisight.wordpress.com/2016/03/22/openocd-for-programming-nrf51822-via-nothing-but-wires-and-a-raspberry-pi/
+
 ## Future development
 
 Replace Ruuvitag with cheap and widely available ESP32 based board. Porting ECU communication to ESP32 should not be a
@@ -106,6 +110,12 @@ the linker script memory description must be changed. Otherwise the code compile
 I'll add relevant files to this repo after some more testing and cleanup. This alternative will cost about $5 for
 the BLE hardware.
 
+Compared to Ruuvitag the module does not have GPIO31 available in headers so for the UART TX some other pin needs
+to be used. For example GPIO3 is available near GPIO30.
+
+These modules can be programmed with OpenOCD, only four wires are needed. From Raspberry PI connect VCC, GND and
+GPIO24 -> SWDIO, GPIO25 -> SWCLK to the module board.
+
 ## Images
 
 ![Interface schematic](images/schema.png?raw=true "Interface schematic")
@@ -113,6 +123,8 @@ the BLE hardware.
 ![Testing with CB500F](images/honda_ruuvi.jpeg?raw=true "Honda and Ruuvitag")
 
 ![Ebay NRF51822 module](images/ebay_module.jpg?raw=true "Ebay module")
+
+![Ebay module pinout](images/ebay_pinout.jpg?raw=true "Ebay module pinout")
 
 ![Android app](images/android_app.png?raw=true "Android app")
 
