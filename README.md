@@ -98,11 +98,21 @@ Other alternative is to use NRF51822 modules that have antenna and related compo
 These modules can be directly programmed with OpenOCD and Raspberry PI just by wiring four GPIO pins. No modification
 to DashBle should be required. Flash Nordic softdevice S132 and DashBle application and it shuold work.
 
+## Ebay NRF51822 modules
+
+Received cheap(est) NRF51 module from Ebay and some initial testing is now complete. The module contans older chip
+verson and Nordic softdevice S130 must be used. Also the chip has only 16kB RAM so in the Nordic SDK linker file
+the linker script memory description must be changed. Otherwise the code compiles and runs without any issues!
+I'll add relevant files to this repo after some more testing and cleanup. This alternative will cost about $5 for
+the BLE hardware.
+
 ## Images
 
 ![Interface schematic](images/schema.png?raw=true "Interface schematic")
 
 ![Testing with CB500F](images/honda_ruuvi.jpeg?raw=true "Honda and Ruuvitag")
+
+![Ebay NRF51822 module](images/ebay_module.jpg?raw=true "Ebay module")
 
 ![Android app](images/android_app.png?raw=true "Android app")
 
