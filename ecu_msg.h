@@ -6,8 +6,13 @@
 #define ECU_BAUDRATE        0x2aa000
 #define BREAK_BAUDRATE      0x007000
 
+#ifdef EBAY_MODULE
+#define RUUVI_UART_RX       30
+#define RUUVI_UART_TX       3
+#else
 #define RUUVI_UART_RX       30
 #define RUUVI_UART_TX       31
+#endif
 
 #define MSG_STM_IDLE        0
 #define MSG_STM_LENGTH      1
