@@ -111,7 +111,7 @@ I'll add relevant files to this repo after some more testing and cleanup. This a
 the BLE hardware.
 
 Compared to Ruuvitag the module does not have GPIO31 available in headers so for the UART TX some other pin needs
-to be used. For example GPIO3 is available near GPIO30.
+to be used. For example GND, GPIO22 and GPIO23 are nicely together in four pins.
 
 These modules can be programmed with OpenOCD, only four wires are needed. From Raspberry PI connect VCC, GND and
 GPIO11 -> SWCLK, GPIO25 -> SWDIO to the module board.
