@@ -7,8 +7,8 @@
 #define BREAK_BAUDRATE      0x007000
 
 #ifdef EBAY_MODULE
-#define RUUVI_UART_RX       30
-#define RUUVI_UART_TX       3
+#define RUUVI_UART_RX       22
+#define RUUVI_UART_TX       23
 #else
 #define RUUVI_UART_RX       30
 #define RUUVI_UART_TX       31
